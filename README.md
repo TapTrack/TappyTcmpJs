@@ -14,8 +14,8 @@ bower install tappy-tcmp
 ## Connecting to Tappies
 In order to connect to a Tappy, you must supply it with a TappyCommunicator.
 For communicating with TappyUSB devices connected using the Chrome serial port, 
-use the TappyChromeSerialCommunicator package found under @taptrack/tappy-chromeserialcomm 
-or tappy-chromeserialcomm depending on whether you are using NPM or Bower.
+use the TappyChromeSerialCommunicator package found under @taptrack/tappy-chromeserialcommunicator 
+or tappy-chromeserialcommunicator depending on whether you are using NPM or Bower.
 
 ```javascript
     var path = "/dev/ttyUSB0";
