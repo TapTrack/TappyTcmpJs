@@ -1,0 +1,24 @@
+{
+    "name": "tappy-tcmp",
+    "description": "Driver for TCMP Tappy devices",
+    "main": [
+        "dist/tcmptappy.js"
+    ],
+    "authors": [
+        "TapTrack"
+    ],
+    "license": "Apache-2.0",
+    "homepage": "",
+    "ignore": [
+        "**/.*",
+        "gulpfile.js",
+        "node_modules",
+        "bower_components",
+        "test",
+        "tests"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git://github.com/TapTrack/TappyTcmpJs.git"
+    }
+}
