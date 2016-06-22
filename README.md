@@ -16,7 +16,7 @@ In order to connect to a Tappy, you must supply it with a TappyCommunicator.
 
 ### NodeJS
 For communicating with TappyUSB devices using the Node serialport driver, 
-use the TappyNodeSerialCommunicator found under `@taptrack/tappynodeserialcommunicator`
+use the TappyNodeSerialCommunicator found under `@taptrack/tappy-nodeserialcommunicator`
 
 ```javascript
 var comm = new NodeSerialCommunicator({path: "/dev/ttyUSB0"});
