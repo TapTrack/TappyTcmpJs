@@ -10,12 +10,20 @@
         root.Tappy = factory();
     }
 }(this, function () {
+    /**
+     * Convert an array of bytes into a hexadecimal representation
+     */
     var toHexStr = function(byteArray) {
         return byteArray.map(function(byte) {
             return ('0' + (byte & 0xFF).toString(16)).slice(-2);
         }).join(' ').toUpperCase();
     };
 
+    /**
+     * This interface stuff is just for checking that objects quack like
+     * a duck. It's pretty overkill in this this circumstance, but it
+     * works fine, so there's no real impetus to replace it.
+     */
     var interface = function(name,methods) {
         this.name = name;
         this.methods = [];
@@ -96,10 +104,39 @@
         return errorString;
     };
 
-
-    var iCommunicator = new interface("iCommunicator",['connect','disconnect','isConnected','flush','setDataCallback','setErrorCallback','send']);
-    var iTcmpMessage = new interface("iTcmpMessage",['getCommandFamily','getCommandCode','getPayload']);
-    
+    /**
+     * Tappy Communicator type
+     *
+     * @name TappyCommunicator
+     * @object
+     * @method {function(function(boolean))} connect
+     * @method {function(function())} disconnect
+     * @method {function() boolean} isConnected
+     * @method {function(function(boolean)) flush
+     * @method {function(function(Uint8Array)) setDataCallback
+     * @method {function(function(object))} setErrorCallback
+     * @method {function(Uint8Array)} send
+     */
+    var iCommunicator = new interface("iCommunicator",
+            ['connect','disconnect','isConnected','flush',
+            'setDataCallback','setErrorCallback','send']);
+    /**
+     * Tcmp message type
+     *
+     * @name TcmpMessage
+     * @object
+     * @method {function() Uint8Array} getCommandFamily 
+     * @method {function() byte} getCommandCode
+     * @method {function() Uint8Array} getPayload
+     */
+    var iTcmpMessage = new interface("iTcmpMessage",
+            ['getCommandFamily','getCommandCode','getPayload']);
+   
+    /**
+     * CRC Calculation code is kind of messy, ported from Java
+     * code that was ported from C, probably should be cleaned
+     * up eventually
+     */
     var update_cr16 = function (crc, b) {
         var i = 0;
         var v = 0;
@@ -121,6 +158,16 @@
 
         return [((crc>>8) & 0xFF),(crc & 0XFF)];
     };
+
+    /**
+     * Construct a TCMP packet without HDLC framing or escaping
+     *
+     * @param {Uint8Array} family two-byte command family
+     * @param byte command command code 
+     * @param {Uint8Array} payload payload to go into frame, must be provided
+     * but may be of zero length
+     * @return {Uint8Array} composed TCMP packet
+     */
     var composeTcmp = function(family,command,payload) {
         var length = payload.length + 5;
         var l1 = ((length >> 8) & 0xff);
@@ -144,22 +191,58 @@
         return packet;
     };
 
-    var decodeTcmp = function(packet) {
-        var RawTcmp = function(family,code,payload) {
-            this.family = new Uint8Array(family);
-            this.code = code;
-            this.payload = new Uint8Array(payload);
-            this.getCommandFamily = function () {
-                return this.family;
-            };
-            this.getCommandCode= function () {
-                return this.code;
-            };
-            this.getPayload = function () {
-                return this.payload;
-            };
-            
+    /**
+     * Tcmp mesage
+     * @class {RawTcmpMessage}
+     */
+    var RawTcmpMessage = function(family,code,payload) {
+        var commandFamily = new Uint8Array(family);
+        var commandCode = code;
+        var payloadData = new Uint8Array(payload);
+
+        /**
+         * Get the command family
+         * @method
+         * @return {Uint8Array} 2-byte command family identifier
+         */
+        this.getCommandFamily = function () {
+            return commandFamily;
         };
+
+        /**
+         * Get the command family
+         * @method
+         * @return {byte} command code
+         */
+        this.getCommandCode= function () {
+            return commandCode;
+        };
+        
+        /**
+         * Get the packet payload
+         * @method
+         * @return {Uint8Array} payload contents (may be 0 length)
+         */
+        this.getPayload = function () {
+            return payloadData;
+        };
+    };
+
+    /**
+     * Tcmp parser result
+     * @name TcmpPacketParseResult
+     * @object
+     * @property {?RawTcmpMessage} msg the parsed TCMP message
+     * @property {boolean} ok true if parsed successfully, else false
+     * @property {?msg} English description of parse error if one occured
+     */
+    /**
+     * Parse a TCMP packet out of raw bytes
+     *
+     * @param {Uint8Array} packet TCMP data after HDLC deframing
+     * @return {TcmpPacketParseResult} result of the parse attempt
+     */
+    var decodeTcmp = function(packet) {
         
         if(packet.length < 8) {
             return {msg: null, ok: false, err: "Too short"};
@@ -191,12 +274,23 @@
 
         var payload = packet.slice(6,packet.length - 2);
         return {
-            msg: new RawTcmp(family,code,payload),
+            msg: new RawTcmpMessage(family,code,payload),
             ok: true,
             err: null
         };
     };
 
+    /**
+     * Wraps a TCMP packet in the HDLC-derived framing protocol, including
+     * escaping any control bytes found in packet.
+     * 
+     * Note that this is not a full HDLC implementation and should
+     * not be taken as such. It merely borrows some of the basic framing
+     * concepts.
+     *
+     * @param {Uint8Array} packet the packet to frame
+     * @return {Uint8Array} packet hdlc frame
+     */
     var createHdlcFrame = function(packet) {
         var frame = [0x7E];
         for(var i = 0; i < packet.length; i++) {
@@ -216,6 +310,26 @@
         return new Uint8Array(frame);
     };
 
+    /**
+     * Hdlc unescaping/deframing result
+     *
+     * If deframing fails, this indicates that control bytes are found
+     * in invalid positions such as an escape byte preceeding a non-control
+     * byte.
+     *
+     * @name HdlcDeframingResult
+     * @object
+     * @property {Uint8Array} msg the parsed TCMP message
+     * @property {boolean} ok true if deframed successfully, else false
+     * if deframing fails, the contents of msg should be treated as 
+     * undefined
+     */
+    /**
+     * Deframe and unescape a potential HDLC frame
+     *
+     * @param {Uint8Array} packet packet contents
+     * @return {HdlcDeframingResult}
+     */
     var unescapeHdlc = function(packet) {
         var unescaped = [];
         var ok = true;
@@ -248,10 +362,25 @@
     };
 
 
+    /**
+     * Determine if a param is present on an object and non-null
+     * 
+     * @param {object} obj object to check
+     * @param {string} name name of param to check for
+     * @return {boolean} true if param is present and non-null
+     */
     var hasParam = function(obj,name) {
         return typeof obj === "object" && obj !== null && typeof obj[name] !== 'undefined';
     };
 
+    /**
+     * Get a property from an object or a default if the property is not
+     * present on the object or is present, but === null
+     * 
+     * @param {object} obj object to check
+     * @param {string} name name of property to check for
+     * @param {*} def default value to return if property not found
+     */
     var getValue = function(obj,name,def) {
         if(hasParam(obj,name)) {
             return obj[name];
@@ -260,13 +389,26 @@
         }
     };
 
+
+
     /**
-     * TcmpTappy~params
-     * communicator: 
-     * messageListener: message listener
-     * errorListener: error listener
+     * Tappy Params
+     * @name TappyParams
+     * @property {TappyCommunicator} communicator communication interface with
+     *      the tappy device
+     * @property {?function(TcmpMessage)} messageListener message listener 
+     *      callback
+     * @property {?function(Tappy.ErrorType,?object)} errorListener error 
+     *      listener object contains information about the error, may be 
+     *      null, for instance in the case of NOT_CONNECTED
      */
-    var TcmpTappy = function (params) {
+
+    /**
+     * Tappy
+     * @param {TappyParams} parameters for constructing the tappy
+     * @throws If a communicator is not supplied
+     */
+    var Tappy = function (params) {
         var self = this;
         if(hasParam(params,"communicator")) {
             var comm = params.communicator;
@@ -286,8 +428,11 @@
             var dataArr = new Uint8Array(data);
             for(var i = 0; i < dataArr.length; i++) {
                 self.buffer.push(dataArr[i]);
+                // Check for frame boundary byte
                 if(dataArr[i] === 0x7E) {
+                    // Chop frame out of buffer
                     var packet = self.buffer;
+                    // reset buffer
                     self.buffer = [];
                     var hRes = unescapeHdlc(packet);
                     if(hRes.ok) {
@@ -297,70 +442,146 @@
                                 self.messageListener(tRes.msg);
                             }
                             else {
-                                self.errorListener(TcmpTappy.ErrorType.INVALID_TCMP,{packet: packet, message: hRes.unescaped});
+                                self.errorListener(Tappy.ErrorType.INVALID_TCMP,{packet: packet, message: hRes.unescaped});
                             }
                         }
                     }
                     else {
-                        self.errorListener(TcmpTappy.ErrorType.INVALID_HDLC,{packet:packet});                
+                        self.errorListener(Tappy.ErrorType.INVALID_HDLC,{packet:packet});                
                     }
                 }
             }
         };
 
         this.commErrorCb = function(data) {
-            this.errorListener(TcmpTappy.ErrorType.CONNECTION_ERROR,data);
+            self.errorListener(Tappy.ErrorType.CONNECTION_ERROR,data);
         };
 
         this.communicator.setDataCallback(this.dataCb);
         this.communicator.setErrorCallback(this.commErrorCb);
     };
 
-    TcmpTappy.ErrorType = {
+    /**
+     * Object containing different communication error categorizations
+     */
+    Tappy.ErrorType = {
+        /**
+         * Attempted to send a message when communicator was in an
+         * unconnected state
+         */
         NOT_CONNECTED: 0x00,
+        
+        /**
+         * Communicator reported that an error occured when message 
+         * send was attempted
+         */
         CONNECTION_ERROR: 0x01,
+        
+        /**
+         * Data was received that violates the Tappy framing convention.
+         * This generally occurs because a control byte was found in the
+         * wrong place, perhaps due to communication bit corruption
+         */
         INVALID_HDLC: 0x02,
+        
+        /**
+         * Data was received that used the corrent Tappy HDLC framing,
+         * but the contents were not parsable as a valid TCMP message
+         */
         INVALID_TCMP: 0x03,
     };
     
 
 
-    TcmpTappy.prototype = {
+    Tappy.prototype = {
+        /**
+         * Set the message listener for this Tappy. Replaces any
+         * previously set listener.
+         *
+         * @param {function(TcmpMessage)} cb new listener
+         */
         setMessageListener: function(cb) {
-            this.messageListener = cb;
+            var self = this;
+            self.messageListener = cb;
         },
-
+        /**
+         * Send a tcmp message to the tappy
+         *
+         * @param {TcmpMessage} message message to send
+         * @throws If message is not a valid TcmpMessage
+         */
         sendMessage: function(message) {
+            var self = this;
             var valid = interface.check(message,iTcmpMessage);
             if(!valid) {
-                throw new Error(interface.typeErrorString(message,iTcmpMessage));
+                throw new Error(
+                        interface.typeErrorString(message,iTcmpMessage));
             }
-            if(this.communicator.isConnected()) {
+            if(self.isConnected()) {
                 var packet = composeTcmp(message.getCommandFamily(),
                         message.getCommandCode(),
                         message.getPayload());
                 var frame = createHdlcFrame(packet);
-                this.communicator.send(frame.buffer);
+                self.communicator.send(frame.buffer);
             }
             else {
-                this.errorListener(TcmpTappy.ErrorType.NOT_CONNECTED);
+                self.errorListener(Tappy.ErrorType.NOT_CONNECTED);
             }
         },
 
+        /** 
+         * Set the error listener for the Tappy. Replaces any previously set 
+         * listener.
+         *
+         * @param {?function(Tappy.ErrorType,?object)} errorListener error 
+         *      listener object contains information about the error, may be 
+         *      null, for instance in the case of NOT_CONNECTED
+         */
         setErrorListener: function(cb) {
-            this.errorListener = cb;
+            var self = this;
+            self.errorListener = cb;
         },
         
+        /**
+         * Convenience function for calling connect on the communicator
+         * Technically speaking, you can call connect manually on the 
+         * communicator instead, but this capability may not be persisted in
+         * the future, so it should not be relied upon.
+         *
+         * @param {callback} cb Callback passed to communicator connect
+         */
         connect: function(cb){
-            this.communicator.connect(cb);
+            var self = this;
+            self.communicator.connect(cb);
         },
+        
+        /**
+         * Convenience function for calling disconnect on the communicator
+         * Technically speaking, you can call disconnect manually on the 
+         * communicator instead, but this capability may not be persisted in
+         * the future, so it should not be relied upon.
+         *
+         * @param {callback} cb Callback passed to communicator disconnect
+         */
         disconnect: function(cb){
-            this.communicator.disconnect(cb);
+            var self = this;
+            self.communicator.disconnect(cb);
         },
+        
+        /**
+         * Determine if the backing communicator is in a connected state.
+         * This should return the same value as calling isConnected directly
+         * on the communicator, but this behaviour may not be persisted in
+         * the future, so it should not be relied upon.
+         *
+         * @return {boolean} true if the backing communicator is in a 
+         * connected state
+         */
         isConnected: function() {
-            return this.communicator.isConnected();
+            var self = this;
+            return self.communicator.isConnected();
         },
     };
 
-    return TcmpTappy;
+    return Tappy;
 }));
