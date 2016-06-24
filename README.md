@@ -125,6 +125,60 @@ but the contents were not parsable as a valid TCMP message
 
 ## Methods
 
+### Tappy.resolveTagType(id)
+Resolve a standard Tappy tag type numeric identifier into an object 
+describing the properties of the tag.
+
+**id (required)** Numeric tag id as returned by responses such as
+TagFound and TagWritten responses in the BasicNfc command family.
+The return value will be an object containing information about the
+type of tag that the Tappy is reporting.
+
+Example result object for an NXP MIFARE DESFire EV1 8k
+```javascript
+{
+    // Tappy standard tag identifier
+    id: 13;
+    
+    // NFC Forum Tag Type,
+    // -1 for non-NFC forum compliant
+    // 0 if unknown
+    forumType: 4;
+    
+    // Human-readable description of the
+    // tag technology
+    description: "MIFARE DESFire EV1 8k";
+    
+    // Read/write user memory capacity of
+    // the lowest capacity tag fitting 
+    // this type, 0 if there is insufficient
+    // information to provide a useful number
+    safeCapacity: 8192;
+    
+    // Read/write user memory capacity of
+    // the largest capacity tag fitting 
+    // this type, 0 if there is insufficient
+    // information to provide a useful number
+    maxCapacity: 8192;
+}
+```
+
+It should be noted that the Tappy cannot always fully determine the type of tag
+it is being presented with. Unfortunately, the NFC tag detection procedure does 
+not usually provide sufficient information to narrow a tag down to one tag 
+technology Therefore, the Tappy has the capability to deploy several heuristics
+in order to better determine what type of tag is connected, but 
+making use of these heuristics significantly increases the number of operations
+performed on the tag during detection, so they can noticeably impair scanning 
+performance. As such, often the Tappy will report "Generic" tag 
+types. In these cases the safeCapacity parameter will provide
+the user data capacity of the smallest tag likely to fit what the 
+Tappy has detected, while maxCapacity has the capacity of the largest
+common tag the Tappy beleives will fit the detection results. Note that
+these capacities are oftent uncertain and ignore uncommon tag technologies,
+therefore, therefore they should be treated as suggestions, not
+as a source of absolute truth.
+
 ### Tappy(params)
 Create a new Tappy object to communicate with a Tappy device
 

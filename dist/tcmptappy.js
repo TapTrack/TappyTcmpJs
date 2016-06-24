@@ -583,5 +583,88 @@
         },
     };
 
+
+    /**
+     * Tappy standard TagType description
+     *
+     * Note that the Tappy does not always fully deduce the type of a tag.
+     * Unfortunately, the NFC tag detection procedure does not usually provide
+     * sufficient information to determine exactly what type a tag is. 
+     * Therefore, the Tappy has the capability to deploy several heuristics
+     * in order to better determine what type of tag is connected, but 
+     * making use of these heuristics require a lot of operations to be 
+     * performed on the tag, so they can drastically reduce scanning 
+     * performance. As such, often the Tappy will report "Generic" tag 
+     * types. In these cases the safeCapacity parameter will provide
+     * the user data capacity of the smallest tag likely to fit what the 
+     * Tappy has detected, while maxCapacity has the capacity of the largest
+     * common tag the Tappy beleives will fit the detection results. Note that
+     * these capacities are uncertain and ignore uncommon tag technologies,
+     * therefore, therefore they should be treated as suggestions, not
+     * as a source of absolute truth.
+     *
+     * @name TagType
+     * @object
+     * @property {integer} Tappy tag type identifier 
+     * @property {?integer} NFC Forum type, -1 if proprietary or 0 if 
+     * the Tappy was unable to determine what the tag is
+     * @property {string} description english description of tag type
+     * @property {integer} safeCapacity the minimum capacity this tag
+     * may support in bytes, 0 if the Tappy cannot gather enough 
+     * information to provide a useful answer
+     * @property {integer} maxCapacity the maximum capacity this tag
+     * may support in bytes, 0 if the Tappy cannot gather enough 
+     * information to provide a useful answer
+     */
+    var TagType = function(id,forumType,description,safeCapacity,maxCapacity) {
+        this.id = id;
+        this.forumType = forumType;
+        this.description = description;
+        this.safeCapacity = safeCapacity;
+        this.maxCapacity = maxCapacity;
+    };
+
+    Tappy.tagTypes = [];
+    Tappy.tagTypes[0] = new TagType(0,0,"Unknown tag technology",0,0);
+    Tappy.tagTypes[1] = new TagType(1,2,"MIFARE Ultralight",48,128);
+    Tappy.tagTypes[2] = new TagType(2,2,"NTAG 203",144,144);
+    Tappy.tagTypes[3] = new TagType(3,2,"MIFARE Ultralight C",48,48);
+    Tappy.tagTypes[4] = new TagType(4,-1,"MIFARE Classic 1k",1024,1024);
+    Tappy.tagTypes[5] = new TagType(5,-1,"MIFARE Classic 4k",4096,4096);
+    Tappy.tagTypes[6] = new TagType(6,4,"MIFARE DESFire EV1 4k",4096,4096);
+    Tappy.tagTypes[7] = new TagType(7,2,"Generic NFC Forum Type 2",48,888);
+    Tappy.tagTypes[8] = new TagType(8,-1,"MIFARE Plus 2k CL2",2048,2048);
+    Tappy.tagTypes[9] = new TagType(9,-1,"MIFARE Plus 4k CL2",4096,4096);
+    Tappy.tagTypes[10] = new TagType(10,-1,"MIFARE Mini",320,320);
+    // the 256 refers to a 256b desfire, the most common low-capacity 
+    // consumer type 4 tag has 2048b, so in practise that makes more sense
+    Tappy.tagTypes[11] = new TagType(11,4,"Generic NFC Forum Type 4",256,8192);
+    Tappy.tagTypes[12] = new TagType(12,4,"MIFARE DESFire EV1 4k",4096,4096);
+    Tappy.tagTypes[13] = new TagType(13,4,"MIFARE DESFire EV1 8k",8192,8192);
+    Tappy.tagTypes[14] = new TagType(14,4,"MIFARE DESFire - Unspecified model/capacity",256,8192);
+    Tappy.tagTypes[15] = new TagType(15,1,"Topaz 512",454,454);
+    Tappy.tagTypes[16] = new TagType(16,2,"NTAG 210",48,48);
+    Tappy.tagTypes[17] = new TagType(17,2,"NTAG 212",128,128);
+    Tappy.tagTypes[18] = new TagType(18,2,"NTAG 213",144,144);
+    Tappy.tagTypes[19] = new TagType(19,2,"NTAG 215",504,504);
+    Tappy.tagTypes[20] = new TagType(20,2,"NTAG 216",888,888);
+
+    /**
+     * Resolve a tag type id to a concrete tag description
+     *
+     * @param {integer} id Tappy tag type identifer
+     * @return {?TagType} tag type description or null if the type
+     * isn't found in this Tappy's library. 
+     */
+    Tappy.resolveTagType = function(id) {
+        if(typeof Tappy.tagTypes[id] !== "undefined") {
+            return Tappy.tagTypes[id];
+        } else {
+            return null;
+        }
+    };
+    
+
+
     return Tappy;
 }));
