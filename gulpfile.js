@@ -3,8 +3,6 @@ var gulp = require('gulp'),
     rename = require('gulp-rename'),
     del = require('del'),
     jshint = require('gulp-jshint'),
-    debug = require('gulp-debug'),
-    seq = require('run-sequence'),
     jasmine = require('gulp-jasmine'),
     merge = require('merge-stream');
 
@@ -22,7 +20,7 @@ gulp.task('compile', function() {
 });
 
 gulp.task('clean',function() {
-    del(['dist/**/*']);
+    return del(['dist/**/*']);
 });
 
 gulp.task('lint',function() {
@@ -46,17 +44,13 @@ gulp.task('test:run',function() {
         }));
 });
 
-gulp.task('test', function() {
-    seq('test:lint','test:run')    
-});
+gulp.task('test', gulp.series('test:lint','test:run'));
 
-gulp.task('build',function(cb) {
-    seq(['lint','clean'],'test','compile',cb);
-});
+gulp.task('build',gulp.series(gulp.parallel('lint','clean'),'test','compile'));
 
 gulp.task('watch',function() {
-    gulp.watch(['src/**/*'],['build']);
-    gulp.watch(['test/**/*.js'],['test']);
+    gulp.watch(['src/**/*'],gulp.series('build'));
+    gulp.watch(['test/**/*.js'],gulp.series('test'));
 });
 
-gulp.task('default',['build','watch']);
+gulp.task('default',gulp.parallel('build','watch'));
