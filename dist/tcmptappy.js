@@ -24,7 +24,7 @@
      * a duck. It's pretty overkill in this this circumstance, but it
      * works fine, so there's no real impetus to replace it.
      */
-    var interface = function(name,methods) {
+    var objectInterface = function(name,methods) {
         this.name = name;
         this.methods = [];
 
@@ -36,7 +36,7 @@
         }
     };
     
-    interface.prototype = {
+    objectInterface.prototype = {
         getName: function() {
             return this.name;
         },
@@ -45,9 +45,9 @@
         }
     };
 
-    interface.iInterface = new interface("iInterface",["getName","getMethods"]);
+    objectInterface.iInterface = new objectInterface("iInterface",["getName","getMethods"]);
 
-    interface.hasMethod = function(instance, method) {
+    objectInterface.hasMethod = function(instance, method) {
         if(!instance[method] || typeof instance[method] !== 'function') {
             return false;
         } else {
@@ -55,7 +55,7 @@
         }
     };
 
-    interface.check = function(instance) {
+    objectInterface.check = function(instance) {
         if(arguments.length < 2) {
             throw new Error("Must specify an instance as well as 1 or more interfaces to check");
         }
@@ -65,7 +65,7 @@
             var methods = proto.getMethods();
             for(var j = 0; j < methods.length; j++) {
                 var method = methods[j];
-                if(!interface.hasMethod(instance,method)) {
+                if(!objectInterface.hasMethod(instance,method)) {
                     return false;
                 }
             }
@@ -74,14 +74,14 @@
         return true;
     };
 
-    interface.typeErrorString = function(instance) {
+    objectInterface.typeErrorString = function(instance) {
         if(arguments.length < 2) {
             throw new Error("Must specify at least one instance and one interface");
         }
         var errorString = "Error, object "+instance.toString()+" must implement: ";
         for(var i = 1; i < arguments.length; i++) {
             var proto = arguments[i];
-            if(!interface.check(proto,interface.iInterface)) {
+            if(!objectInterface.check(proto,objectInterface.iInterface)) {
                 throw new Error("Must check against Interfaces");
             }
             else {
@@ -90,7 +90,7 @@
                 var fullMethods = [];
                 for(var j = 0; j < methods.length; j++) {
                     fullMethods.push(methods[j]);
-                    if(!interface.hasMethod(instance,methods[j])) {
+                    if(!objectInterface.hasMethod(instance,methods[j])) {
                         missingMethods.push(methods[j]);
                     }
                 }
@@ -117,7 +117,7 @@
      * @method {function(function(object))} setErrorCallback
      * @method {function(Uint8Array)} send
      */
-    var iCommunicator = new interface("iCommunicator",
+    var iCommunicator = new objectInterface("iCommunicator",
             ['connect','disconnect','isConnected','flush',
             'setDataCallback','setErrorCallback','send']);
     /**
@@ -129,7 +129,7 @@
      * @method {function() byte} getCommandCode
      * @method {function() Uint8Array} getPayload
      */
-    var iTcmpMessage = new interface("iTcmpMessage",
+    var iTcmpMessage = new objectInterface("iTcmpMessage",
             ['getCommandFamily','getCommandCode','getPayload']);
    
     /**
@@ -412,8 +412,8 @@
         var self = this;
         if(hasParam(params,"communicator")) {
             var comm = params.communicator;
-            if(!interface.check(comm,iCommunicator)) {
-                throw new Error(interface.typeErrorString(comm,iCommunicator));
+            if(!objectInterface.check(comm,iCommunicator)) {
+                throw new Error(objectInterface.typeErrorString(comm,iCommunicator));
             } else {
                 this.communicator = comm;
             }
@@ -512,10 +512,10 @@
          */
         sendMessage: function(message) {
             var self = this;
-            var valid = interface.check(message,iTcmpMessage);
+            var valid = objectInterface.check(message,iTcmpMessage);
             if(!valid) {
                 throw new Error(
-                        interface.typeErrorString(message,iTcmpMessage));
+                    objectInterface.typeErrorString(message,iTcmpMessage));
             }
             if(self.isConnected()) {
                 var packet = composeTcmp(message.getCommandFamily(),
