@@ -24,7 +24,7 @@
      * a duck. It's pretty overkill in this this circumstance, but it
      * works fine, so there's no real impetus to replace it.
      */
-    const objectInterface = function(name,methods) {
+    var objectInterface = function(name,methods) {
         this.name = name;
         this.methods = [];
 
